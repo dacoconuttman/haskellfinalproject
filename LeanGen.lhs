@@ -80,7 +80,7 @@ Generates text using a word-level Markov Chain
 > wordGen paragraphs parLines lineWords =
 >   let
 >     g = mkStdGen parLines
->     gen = take parLines $ run lineWords paragraphs 10 g
+>     gen = take parLines $ run (lineWords `div` 4) paragraphs 10 g -- samples from 1/4 instead of a full line to make lyrics more original
 >   in gen
 
 
