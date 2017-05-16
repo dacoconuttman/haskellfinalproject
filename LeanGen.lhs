@@ -12,6 +12,7 @@ the next sequence of characters is determined by the last n characters, where
 n is the average word length
 
 > {-# LANGUAGE QuasiQuotes                      #-}
+> {-# LANGUAGE NoMonomorphismRestriction #-}
 > import Data.MarkovChain
 > import System.Random (mkStdGen)
 > import Text.RE.TDFA.String
@@ -45,46 +46,52 @@ Some metrics used to *hopefully* improve the quality of the generated lyrics
 
 Lines per paragraph: used on the corpus after applying linesToParagraph
 
-> linesPerPar corpus = do
->   let lsLines = map (length) corpus
->   let lsLinesFixed = filter (\x -> x /= 1) lsLines
->   let avg = sum (lsLinesFixed) `div` length lsLinesFixed
->   return avg
+> linesPerPar :: [Paragraph] -> Int
+> linesPerPar corpus =
+>   let
+>     lsLines = map (length) corpus
+>     lsLinesFixed = filter (\x -> x /= 1) lsLines
+>     avg = sum (lsLinesFixed) `div` length lsLinesFixed
+>   in avg
 
 
 Words per line: used on the raw text
 
-> wordsPerLine corpus = do
->   let wordCount = map (length.words) (lines corpus)
->   let avg = sum (wordCount) `div` length (lines corpus)
->   return avg
+> wordsPerLine :: String -> Int
+> wordsPerLine corpus = let
+>     wordCount = map (length.words) (lines corpus)
+>     avg = sum (wordCount) `div` length (lines corpus)
+>   in avg
 
 
 Characters per word: used on the raw text
 
-> charsPerWord corpus = do
->   let splitWords = words corpus
->   let wordLens = map (length) splitWords
->   let avg = sum (wordLens) `div` length wordLens
->   return avg
+> charsPerWord :: String -> Int
+> charsPerWord corpus =
+>   let
+>     splitWords = words corpus
+>     wordLens = map (length) splitWords
+>     avg = sum (wordLens) `div` length wordLens
+>   in avg
 
 
 Generates text using a word-level Markov Chain
 
-> wordGen paragraphs parLines lineWords = do
->   let g = mkStdGen parLines
->   let text = intercalate " " paragraphs
->   let gen = take parLines $ run (words lineWords) text 0 g
->   return gen
+> wordGen paragraphs parLines lineWords =
+>   let
+>     g = mkStdGen parLines
+>     gen = take parLines $ run lineWords paragraphs 10 g
+>   in gen
 
 
 Generates text using a character-level Markov Chain
 
-> charGen paragraphs parLines lineWords wordChars = do
->   let g = mkStdGen (wordChars * lineWords * parLines)
->   let text = intercalate " " paragraphs
->   let gen = take (wordChars * lineWords * parLines) $ run wordChars text 0 g
->   return gen
+> charGen paragraphs parLines lineWords wordChars =
+>   let
+>     g = mkStdGen (wordChars * lineWords * parLines)
+>     text = intercalate " " paragraphs
+>     gen = take (wordChars * lineWords * parLines) $ run wordChars text 0 g
+>   in gen
 
 
 > main :: IO()
@@ -95,17 +102,19 @@ Generates text using a character-level Markov Chain
 >   let paragraphs = linesToParagraph $ lines rawText
 >   let hooks = filter (isHook) paragraphs
 >   let verses = filter (isVerse) paragraphs
+>   let catHooks = concat hooks
+>   let catVerses = concat verses
 >   let hookParLines = linesPerPar hooks
 >   let verseParLines = linesPerPar verses
->   let wordGenHook = wordGen hooks hookParLines lineWords
+>   let wordGenHook = wordGen catHooks hookParLines lineWords
 >   putStrLn "Hook generated on a word level:"
->   print wordGenHook
->   let wordGenVerse = wordGen verses verseParLines lineWords
+>   mapM_ print wordGenHook
+>   let wordGenVerse = wordGen catVerses verseParLines lineWords
 >   putStrLn "Verse generated on a word level:"
->   print wordGenVerse
->   let charGenHook = charGen hooks hookParLines lineWords wordChars
+>   mapM_ print wordGenVerse
+>   let charGenHook = charGen catHooks hookParLines lineWords wordChars
 >   putStrLn "Hook generated on a character level:"
 >   print charGenHook
->   let charGenVerse = charGen verses verseParLines lineWords wordChars
+>   let charGenVerse = charGen catVerses verseParLines lineWords wordChars
 >   putStrLn "Verse generated on a character level:"
 >   print charGenVerse
