@@ -24,6 +24,7 @@ n is the average word length
 Converts text into paragraphs
 This way, if a paragraph's first element is a string containing [Hook:]
 or something analogous, I can identify the whole paragraph as a hook
+Reference: http://stackoverflow.com/questions/20826497/identifying-number-of-words-in-a-paragraph-using-haskell
 
 > linesToParagraph :: [Line] -> [Paragraph]
 > linesToParagraph [] = []
