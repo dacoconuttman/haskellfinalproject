@@ -15,6 +15,7 @@ n is the average word length
 > import Data.MarkovChain
 > import System.Random (mkStdGen)
 > import Text.RE.TDFA.String
+> import Data.List
 
 > type Line       = String
 > type Paragraph  = [String]
@@ -37,24 +38,74 @@ The regex is very simple: \[.*:\]
 It looks for anything between square braces with a colon
 right before the closing brace
 
-
 > isHook paragraph = matched $ head paragraph ?=~ [re|\[.*:\]|]
-> isVerse paragraph = not( matched $ head paragraph ?=~ [re|\[.*:\]|])
+> isVerse paragraph = not (matched $ head paragraph ?=~ [re|\[.*:\]|])
+
+Some metrics used to *hopefully* improve the quality of the generated lyrics
+
+Lines per paragraph: used on the corpus after applying linesToParagraph
+
+> linesPerPar corpus = do
+>   let lsLines = map (length) corpus
+>   let lsLinesFixed = filter (\x -> x /= 1) lsLines
+>   let avg = sum (lsLinesFixed) `div` length lsLinesFixed
+>   return avg
 
 
+Words per line: used on the raw text
+
+> wordsPerLine corpus = do
+>   let wordCount = map (length.words) (lines corpus)
+>   let avg = sum (wordCount) `div` length (lines corpus)
+>   return avg
+
+
+Characters per word: used on the raw text
+
+> charsPerWord corpus = do
+>   let splitWords = words corpus
+>   let wordLens = map (length) splitWords
+>   let avg = sum (wordLens) `div` length wordLens
+>   return avg
+
+
+Generates text using a word-level Markov Chain
+
+> wordGen paragraphs parLines lineWords = do
+>   let g = mkStdGen parLines
+>   let text = intercalate " " paragraphs
+>   let gen = take parLines $ run (words lineWords) text 0 g
+>   return gen
+
+
+Generates text using a character-level Markov Chain
+
+> charGen paragraphs parLines lineWords wordChars = do
+>   let g = mkStdGen (wordChars * lineWords * parLines)
+>   let text = intercalate " " paragraphs
+>   let gen = take (wordChars * lineWords * parLines) $ run wordChars text 0 g
+>   return gen
 
 
 > main :: IO()
 > main = do
 >   rawText <- readFile "data/corpus.txt"
+>   let wordChars = charsPerWord rawText
+>   let lineWords = wordsPerLine rawText
 >   let paragraphs = linesToParagraph $ lines rawText
->   print $ head paragraphs
 >   let hooks = filter (isHook) paragraphs
 >   let verses = filter (isVerse) paragraphs
->   print $ head hooks
->   print $ head verses
->   let g = mkStdGen 100
->   putStrLn $ "Character by character: \n"
->   putStrLn $ take 1000 $ run 3 rawText 0 g
->   putStrLn $ "\nWord by word: \n"
->   putStrLn $ unwords $ take 100 $ run 2 (words rawText) 0 g
+>   let hookParLines = linesPerPar hooks
+>   let verseParLines = linesPerPar verses
+>   let wordGenHook = wordGen hooks hookParLines lineWords
+>   putStrLn "Hook generated on a word level:"
+>   print wordGenHook
+>   let wordGenVerse = wordGen verses verseParLines lineWords
+>   putStrLn "Verse generated on a word level:"
+>   print wordGenVerse
+>   let charGenHook = charGen hooks hookParLines lineWords wordChars
+>   putStrLn "Hook generated on a character level:"
+>   print charGenHook
+>   let charGenVerse = charGen verses verseParLines lineWords wordChars
+>   putStrLn "Verse generated on a character level:"
+>   print charGenVerse
